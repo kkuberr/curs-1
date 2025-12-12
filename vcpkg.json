@@ -1,0 +1,9 @@
+{
+  "name": "opcua-qt-client",
+  "version": "0.1.0",
+  "dependencies": [
+    "qtbase",
+    "open62541",
+    "gtest"
+  ]
+}

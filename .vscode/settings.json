@@ -1,0 +1,23 @@
+{
+    "cmake.configureSettings": {
+        "CMAKE_TOOLCHAIN_FILE": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    },
+    "cmake.generator": "Ninja",  // Более переносимый чем VS
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.buildBeforeRun": true,
+    "cmake.configureOnOpen": false,  // Лучше отключить авто-конфигурацию
+    
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    
+    "terminal.integrated.env.windows": {
+        "PATH": "${env:PATH};${env:VCPKG_ROOT}/installed/x64-windows/bin"
+    },
+    
+    // Добавить для Linux/macOS поддержку
+    "terminal.integrated.env.linux": {
+        "PATH": "${env:PATH}:${env:HOME}/vcpkg/installed/x64-linux/bin"
+    },
+    "terminal.integrated.env.osx": {
+        "PATH": "${env:PATH}:${env:HOME}/vcpkg/installed/x64-osx/bin"
+    }
+}
