@@ -3,14 +3,14 @@
 #include <QMainWindow>
 #include <memory>
 
-class QListWidget;
 class QLineEdit;
-class QLabel;
 class QPushButton;
+class QLabel;
 class QCheckBox;
 class QSpinBox;
+class QListWidget;
 
-class OpcUaClient;
+#include "OpcUaClient.h"  // <-- поправлено
 
 class MainWindow : public QMainWindow
 {
@@ -18,6 +18,10 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
+
+private:
+    void setupUi();
+    void setStatus(const QString& s);
 
 private slots:
     void onConnectClicked();
@@ -28,23 +32,24 @@ private slots:
     void onAutoRefreshToggled(bool checked);
 
 private:
-    void setupUi();
-    void setStatus(const QString& s);
-
-    QListWidget* m_list = nullptr;
-    QLineEdit* m_url = nullptr;
-    QPushButton* m_connect = nullptr;
-    QPushButton* m_disconnect = nullptr;
-    QPushButton* m_browse = nullptr;
-    QLabel* m_selected = nullptr;
-    QLineEdit* m_currentValue = nullptr;
-    QLabel* m_type = nullptr;
-    QLineEdit* m_newValue = nullptr;
-    QPushButton* m_write = nullptr;
-    QCheckBox* m_auto = nullptr;
-    QSpinBox* m_interval = nullptr;
-
-    QLabel* m_status = nullptr;
-
     std::unique_ptr<OpcUaClient> m_client;
+
+    QLineEdit* m_url;
+    QPushButton* m_connect;
+    QPushButton* m_disconnect;
+
+    QPushButton* m_browse;
+    QCheckBox* m_auto;
+    QSpinBox* m_interval;
+
+    QListWidget* m_list;
+    QLabel* m_selected;
+
+    QLineEdit* m_currentValue;
+    QLabel* m_type;
+
+    QLineEdit* m_newValue;
+    QPushButton* m_write;
+
+    QLabel* m_status;
 };
