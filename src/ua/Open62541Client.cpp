@@ -3,15 +3,41 @@
 #include <sstream>
 
 #ifdef WITH_OPEN62541
+// Include open62541 C headers with C linkage for C++ compilation
+extern "C" {
+#include <open62541/client.h>
+#include <open62541/client_config_default.h>
+#include <open62541/types.h>
+#include <open62541/types_generated.h>
+}
+
+#endif
+
+
+#ifdef WITH_OPEN62541
+#include <open62541/client_highlevel.h>
 static std::string uaStringToStd(const UA_String& str) {
     return std::string(reinterpret_cast<const char*>(str.data), str.length);
 }
 
 static std::string nodeIdToString(const UA_NodeId& nodeId) {
-    char buffer[256] = {0};
-    UA_NodeId_print(&nodeId, buffer, sizeof(buffer));
-    return std::string(buffer);
+    std::ostringstream oss;
+
+    if (nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
+        oss << "ns=" << nodeId.namespaceIndex
+            << ";i=" << nodeId.identifier.numeric;
+    }
+    else if (nodeId.identifierType == UA_NODEIDTYPE_STRING) {
+        oss << "ns=" << nodeId.namespaceIndex
+            << ";s=" << uaStringToStd(nodeId.identifier.string);
+    }
+    else {
+        oss << "<unsupported>";
+    }
+
+    return oss.str();
 }
+
 #endif
 
 Open62541Client::Open62541Client()
@@ -62,27 +88,38 @@ bool Open62541Client::isConnected() const {
 
 std::vector<BrowseItem> Open62541Client::browseObjects() {
     std::vector<BrowseItem> result;
+
 #ifdef WITH_OPEN62541
     if (!m_connected || !m_client) return result;
 
     UA_BrowseRequest bReq;
     UA_BrowseRequest_init(&bReq);
+
     bReq.nodesToBrowse = UA_BrowseDescription_new();
     bReq.nodesToBrowseSize = 1;
-    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-    bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_NODECLASS | UA_BROWSERESULTMASK_DISPLAYNAME;
 
-    UA_BrowseResponse bResp = UA_Client_Service_browse(m_client, bReq);
+    bReq.nodesToBrowse[0].nodeId =
+        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+    bReq.nodesToBrowse[0].resultMask =
+        UA_BROWSERESULTMASK_NODECLASS |
+        UA_BROWSERESULTMASK_DISPLAYNAME;
+
+    UA_BrowseResponse bResp =
+        UA_Client_Service_browse(m_client, bReq);
 
     if (bResp.responseHeader.serviceResult == UA_STATUSCODE_GOOD) {
         for (size_t i = 0; i < bResp.resultsSize; ++i) {
             for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
-                const UA_ReferenceDescription& ref = bResp.results[i].references[j];
-                if (ref.nodeClass != UA_NODECLASS_VARIABLE) continue;
+                const UA_ReferenceDescription& ref =
+                    bResp.results[i].references[j];
+
+                if (ref.nodeClass != UA_NODECLASS_VARIABLE)
+                    continue;
 
                 BrowseItem item;
                 item.nodeId = nodeIdToString(ref.nodeId.nodeId);
                 item.displayPath = uaStringToStd(ref.displayName.text);
+
                 result.push_back(item);
             }
         }
@@ -91,21 +128,27 @@ std::vector<BrowseItem> Open62541Client::browseObjects() {
     UA_BrowseRequest_clear(&bReq);
     UA_BrowseResponse_clear(&bResp);
 #endif
+
     return result;
 }
 
 ReadResult Open62541Client::readValue(const std::string& nodeId) {
-    ReadResult r{"<error>", "-"};
+    ReadResult r{ "<error>", "-" };
+
 #ifdef WITH_OPEN62541
     if (!m_connected || !m_client) return r;
 
-    UA_NodeId nid = UA_NODEID_NULL;
-    UA_NodeId_parse(nodeId.c_str(), &nid);
+    UA_NodeId nid;
+    UA_String nodeIdStr = UA_STRING_ALLOC(nodeId.c_str());
+    UA_NodeId_parse(&nid, nodeIdStr);
+    UA_String_clear(&nodeIdStr);
 
     UA_Variant value;
     UA_Variant_init(&value);
 
-    UA_StatusCode ret = UA_Client_readValueAttribute(m_client, nid, &value);
+    UA_StatusCode ret =
+        UA_Client_readValueAttribute(m_client, nid, &value);
+
     if (ret != UA_STATUSCODE_GOOD) {
         UA_NodeId_clear(&nid);
         return r;
@@ -114,16 +157,20 @@ ReadResult Open62541Client::readValue(const std::string& nodeId) {
     if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_BOOLEAN])) {
         r.value = (*(UA_Boolean*)value.data) ? "true" : "false";
         r.type = "Boolean";
-    } else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_INT32])) {
+    }
+    else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_INT32])) {
         r.value = std::to_string(*(UA_Int32*)value.data);
         r.type = "Int32";
-    } else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_DOUBLE])) {
+    }
+    else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_DOUBLE])) {
         r.value = std::to_string(*(UA_Double*)value.data);
         r.type = "Double";
-    } else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_STRING])) {
+    }
+    else if (UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_STRING])) {
         r.value = uaStringToStd(*(UA_String*)value.data);
         r.type = "String";
-    } else {
+    }
+    else {
         r.value = "<unsupported>";
         r.type = "Other";
     }
@@ -131,28 +178,42 @@ ReadResult Open62541Client::readValue(const std::string& nodeId) {
     UA_Variant_clear(&value);
     UA_NodeId_clear(&nid);
 #endif
+
     return r;
 }
 
-bool Open62541Client::writeValue(const std::string& nodeId, const std::string& value) {
+bool Open62541Client::writeValue(
+    const std::string& nodeId,
+    const std::string& value
+) {
 #ifdef WITH_OPEN62541
     if (!m_connected || !m_client) return false;
+    UA_String nodeIdStr = UA_STRING_ALLOC(nodeId.c_str());
 
-    UA_NodeId nid = UA_NODEID_NULL;
-    UA_NodeId_parse(nodeId.c_str(), &nid);
+    UA_NodeId nid;
+    UA_NodeId_parse(&nid, nodeIdStr);
+    UA_String_clear(&nodeIdStr);
 
     UA_Variant v;
     UA_Variant_init(&v);
 
     try {
         double d = std::stod(value);
-        UA_Variant_setScalarCopy(&v, &d, &UA_TYPES[UA_TYPES_DOUBLE]);
-    } catch (...) {
-        UA_NodeId_clear(&nid);
-        return false;
+        UA_Variant_setScalarCopy(
+            &v, &d, &UA_TYPES[UA_TYPES_DOUBLE]
+        );
+    }
+    catch (...) {
+        UA_String str = UA_STRING_ALLOC(value.c_str());
+        UA_Variant_setScalarCopy(
+            &v, &str, &UA_TYPES[UA_TYPES_STRING]
+        );
+        UA_String_clear(&str);
     }
 
-    UA_StatusCode ret = UA_Client_writeValueAttribute(m_client, nid, &v);
+    UA_StatusCode ret =
+        UA_Client_writeValueAttribute(m_client, nid, &v);
+
     UA_Variant_clear(&v);
     UA_NodeId_clear(&nid);
 

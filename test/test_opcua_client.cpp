@@ -1,5 +1,5 @@
-// Unit tests for OpcUaClient (skeleton mode)
-#include "opcua_client.h"
+#// Unit tests for OpcUaClient (skeleton mode)
+#include "OpcUaClient.h"
 #include <gtest/gtest.h>
 
 TEST(OpcUaClientTest, ConnectDisconnect)

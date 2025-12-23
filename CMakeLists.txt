@@ -19,11 +19,23 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # ===== Qt =====
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 COMPONENTS Core Widgets QUIET)
+if(Qt6_FOUND)
+    set(HAVE_QT TRUE)
+else()
+    find_package(Qt5 COMPONENTS Core Widgets QUIET)
+    if(Qt5_FOUND)
+        set(HAVE_QT TRUE)
+    else()
+        set(HAVE_QT FALSE)
+    endif()
+endif()
 
 # ===== open62541 =====
-find_package(open62541 CONFIG REQUIRED)
-add_compile_definitions(WITH_OPEN62541)
+find_package(open62541 CONFIG QUIET)
+if(open62541_FOUND)
+    add_compile_definitions(WITH_OPEN62541)
+endif()
 
 # ===== Paths =====
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -36,20 +48,62 @@ add_library(opcua_client STATIC
     ${UA_DIR}/Open62541Client.cpp
 )
 
-target_include_directories(opcua_client PUBLIC ${SRC_DIR} ${UA_DIR})
-target_link_libraries(opcua_client PUBLIC open62541::open62541)
+target_include_directories(opcua_client 
+    PUBLIC 
+        ${SRC_DIR} 
+        ${UA_DIR}
+)
+
+if(open62541_FOUND)
+    target_link_libraries(opcua_client PUBLIC open62541::open62541)
+    target_compile_definitions(opcua_client PUBLIC WITH_OPEN62541)
+    # Explicitly add include directories for open62541 headers
+    get_target_property(_open62541_include_dirs open62541::open62541 INTERFACE_INCLUDE_DIRECTORIES)
+    if(_open62541_include_dirs)
+        target_include_directories(opcua_client PUBLIC ${_open62541_include_dirs})
+        message(STATUS "Added open62541 include dirs: ${_open62541_include_dirs}")
+    else()
+        # Fallback: add common vcpkg path
+        target_include_directories(opcua_client PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows/include")
+    endif()
+else()
+    message(WARNING "open62541 not found. Building without OPC UA support.")
+endif()
+
+# Fallback: if open62541 CMake config wasn't found but vcpkg is present, add vcpkg include path
+if(NOT open62541_FOUND AND DEFINED ENV{VCPKG_ROOT})
+    set(_vcpkg_root $ENV{VCPKG_ROOT})
+    # try common triplet folder
+    set(_vcpkg_inc "${_vcpkg_root}/installed/x64-windows/include")
+    if(EXISTS "${_vcpkg_inc}")
+        message(STATUS "Adding vcpkg include path for open62541: ${_vcpkg_inc}")
+        target_include_directories(opcua_client PUBLIC "${_vcpkg_inc}")
+    endif()
+endif()
 
 # ===== Executable =====
-add_executable(opcua_qt_client
-    ${SRC_DIR}/main.cpp
-    ${SRC_DIR}/mainwindow.cpp
-)
+if(HAVE_QT)
+    add_executable(opcua_qt_client
+        ${SRC_DIR}/main.cpp
+        ${SRC_DIR}/mainwindow.cpp
+    )
 
-target_link_libraries(opcua_qt_client
-    PRIVATE
-        opcua_client
-        Qt6::Widgets
-)
+    if(Qt6_FOUND)
+        target_link_libraries(opcua_qt_client
+            PRIVATE
+                opcua_client
+                Qt6::Widgets
+        )
+    else()
+        target_link_libraries(opcua_qt_client
+            PRIVATE
+                opcua_client
+                Qt5::Widgets
+        )
+    endif()
+else()
+    message(WARNING "Qt not found. GUI executable will not be built.")
+endif()
 
 # ===== Tests =====
 option(BUILD_TESTS "Build unit tests" ON)
