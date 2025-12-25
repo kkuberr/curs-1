@@ -115,11 +115,26 @@ if(BUILD_TESTS)
         URL https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "")
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
     add_executable(test_opcua_client test/test_opcua_client.cpp)
-    target_link_libraries(test_opcua_client PRIVATE opcua_client gtest_main)
+    
+    # Link gtest libraries properly
+    target_link_libraries(test_opcua_client 
+        PRIVATE 
+            opcua_client 
+            gtest
+            gtest_main
+    )
+    
+    target_include_directories(test_opcua_client 
+        PRIVATE 
+            ${SRC_DIR}
+            ${googletest_SOURCE_DIR}/googletest/include
+    )
+    
     include(GoogleTest)
     gtest_discover_tests(test_opcua_client)
 endif()
