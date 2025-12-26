@@ -3,7 +3,7 @@
 
 struct BrowseItem {
     std::string nodeId;
-    std::string displayPath;   // Device / Var
+    std::string displayPath;  
 };
 
 struct ReadResult {

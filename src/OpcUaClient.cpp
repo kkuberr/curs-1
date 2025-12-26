@@ -11,16 +11,14 @@ OpcUaClient::OpcUaClient() : m_impl(std::make_unique<Impl>()) {}
 OpcUaClient::~OpcUaClient() = default;
 
 bool OpcUaClient::connect(const std::string& url) {
-    // сначала пробуем реальный клиент
     auto real = std::make_unique<Open62541Client>();
     if (real->connect(url)) {
         m_impl->client = std::move(real);
         return true;
     }
 
-    // fallback на Mock
     auto mock = std::make_unique<MockUaClient>();
-    bool ok = mock->connect(url); // в mock можно игнорировать URL
+    bool ok = mock->connect(url);
     m_impl->client = std::move(mock);
     return ok;
 }

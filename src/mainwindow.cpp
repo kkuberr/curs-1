@@ -24,7 +24,6 @@ void MainWindow::setupUi()
     auto* central = new QWidget(this);
     auto* mainLay = new QVBoxLayout(central);
 
-    // --- Верхняя панель подключения ---
     auto* topLay = new QHBoxLayout();
     m_url = new QLineEdit("opc.tcp://localhost:4840");
     m_connect = new QPushButton("Подключиться");
@@ -36,11 +35,10 @@ void MainWindow::setupUi()
     topLay->addWidget(m_connect);
     topLay->addWidget(m_disconnect);
 
-    // --- Панель обхода ---
     auto* browseLay = new QHBoxLayout();
     m_browse = new QPushButton("Обойти Objects");
     m_auto = new QCheckBox("Автообновление");
-    m_auto->setChecked(true);
+    m_auto->setChecked(false); 
     m_interval = new QSpinBox();
     m_interval->setRange(1, 3600);
     m_interval->setValue(2);
@@ -50,17 +48,14 @@ void MainWindow::setupUi()
     browseLay->addWidget(new QLabel("Обновление (с):"));
     browseLay->addWidget(m_interval);
 
-    // --- Список узлов ---
     m_list = new QListWidget();
     m_list->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    // --- Информация о выбранном ---
     auto* infoLay = new QHBoxLayout();
     m_selected = new QLabel("-");
     infoLay->addWidget(new QLabel("NodeId:"));
     infoLay->addWidget(m_selected);
 
-    // --- Текущее значение ---
     auto* valueLay = new QHBoxLayout();
     m_currentValue = new QLineEdit();
     m_currentValue->setReadOnly(true);
@@ -71,7 +66,6 @@ void MainWindow::setupUi()
     valueLay->addWidget(new QLabel("Тип:"));
     valueLay->addWidget(m_type);
 
-    // --- Запись ---
     auto* writeLay = new QHBoxLayout();
     m_newValue = new QLineEdit();
     m_write = new QPushButton("Записать");
@@ -94,7 +88,6 @@ void MainWindow::setupUi()
     setCentralWidget(central);
     setWindowTitle("OPC UA Client (QT)");
 
-    // --- Сигналы ---
     connect(m_connect, &QPushButton::clicked, this, &MainWindow::onConnectClicked);
     connect(m_disconnect, &QPushButton::clicked, this, &MainWindow::onDisconnectClicked);
     connect(m_browse, &QPushButton::clicked, this, &MainWindow::onBrowseClicked);
@@ -103,13 +96,19 @@ void MainWindow::setupUi()
     connect(m_write, &QPushButton::clicked, this, &MainWindow::onWriteClicked);
     connect(m_auto, &QCheckBox::toggled, this, &MainWindow::onAutoRefreshToggled);
 
-    // --- Таймер автообновления ---
     auto* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, [this]() {
         if (m_client->isConnected() && m_auto->isChecked()) {
-            onBrowseClicked();
+            if (!m_list->selectedItems().isEmpty()) {
+                onListSelectionChanged();
+            }
         }
     });
+
+    connect(m_interval, QOverload<int>::of(&QSpinBox::valueChanged), [timer](int val) {
+        timer->setInterval(val * 1000);
+    });
+
     timer->start(m_interval->value() * 1000);
 }
 
@@ -134,6 +133,9 @@ void MainWindow::onDisconnectClicked()
 {
     m_client->disconnect();
     m_list->clear();
+    m_selected->setText("-");
+    m_currentValue->clear();
+    m_type->setText("-");
     setStatus("Отключено");
     m_connect->setEnabled(true);
     m_disconnect->setEnabled(false);
@@ -187,14 +189,18 @@ void MainWindow::onWriteClicked()
 
     if (m_client->write_value(nodeId.toStdString(),
                               m_newValue->text().toStdString())) {
-        m_currentValue->setText(m_newValue->text());
+        onListSelectionChanged(); 
         setStatus("Запись успешна");
     } else {
         setStatus("Ошибка записи");
     }
 }
 
-void MainWindow::onAutoRefreshToggled(bool)
+void MainWindow::onAutoRefreshToggled(bool checked)
 {
-    // Логика в таймере
+    if (checked) {
+        setStatus("Автообновление включено");
+    } else {
+        setStatus("Автообновление выключено");
+    }
 }

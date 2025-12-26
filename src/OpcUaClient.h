@@ -2,8 +2,8 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include "IUaClient.h"  // Интерфейс IUaClient
-#include "UaTypes.h"    // BrowseItem и ReadResult
+#include "IUaClient.h"  
+#include "UaTypes.h"    
 
 class OpcUaClient {
 public:

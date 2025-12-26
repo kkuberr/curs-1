@@ -3,8 +3,6 @@
 bool MockUaClient::connect(const std::string&) {
     m_connected = true;
 
-    // Исправлено: инициализируем значения для тех же NodeId, 
-    // которые возвращаются в browseObjects()
     m_values = {
         {"ns=2;i=1", "25"},
         {"ns=2;i=2", "1.2"},
@@ -44,7 +42,6 @@ std::vector<BrowseItem> MockUaClient::browseObjects() {
 }
 
 ReadResult MockUaClient::readValue(const std::string& nodeId) {
-    // Если nodeId нет в словаре, возвращаем дефолтное значение вместо пустого
     if (m_values.find(nodeId) != m_values.end()) {
         return { m_values[nodeId], "String" };
     }

@@ -10,7 +10,7 @@ class QCheckBox;
 class QSpinBox;
 class QListWidget;
 
-#include "OpcUaClient.h"  // <-- поправлено
+#include "OpcUaClient.h" 
 
 class MainWindow : public QMainWindow
 {
